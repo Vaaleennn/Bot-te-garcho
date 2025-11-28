@@ -5,29 +5,59 @@ require("dotenv").config();
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
   ]
 });
 
 client.once("ready", () => {
   console.log(`Bot conectado como: ${client.user.tag}`);
 
-  const channel = client.channels.cache.get(process.env.VOICE_CHANNEL_ID);
+  // AUTO-CONEXIÓN SI HAY UNA VARIABLE SETEADA
+  if (process.env.VOICE_CHANNEL_ID) {
+    const channel = client.channels.cache.get(process.env.VOICE_CHANNEL_ID);
 
-  if (!channel) {
-    console.error("❌ Canal no encontrado. Verifica VOICE_CHANNEL_ID en .env");
-    return;
+    if (channel) {
+      joinVoiceChannel({
+        channelId: channel.id,
+        guildId: channel.guild.id,
+        adapterCreator: channel.guild.voiceAdapterCreator,
+        selfMute: false,
+        selfDeaf: true
+      });
+
+      console.log(`Auto-conectado al canal: ${channel.name}`);
+    }
   }
+});
 
-  joinVoiceChannel({
-    channelId: channel.id,
-    guildId: channel.guild.id,
-    adapterCreator: channel.guild.voiceAdapterCreator,
-    selfMute: false,
-    selfDeaf: true
-  });
+// COMANDO !unite
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
 
-  console.log("✔ Bot conectado al canal de voz y permanecerá ahí.");
+  if (message.content.toLowerCase() === "!unite") {
+    const channel = message.member.voice.channel;
+
+    if (!channel) {
+      return message.reply("⚠️ Debes estar en un canal de voz para usar este comando.");
+    }
+
+    try {
+      joinVoiceChannel({
+        channelId: channel.id,
+        guildId: channel.guild.id,
+        adapterCreator: channel.guild.voiceAdapterCreator,
+        selfMute: false,
+        selfDeaf: true
+      });
+
+      message.reply(`✅ Me he unido al canal: **${channel.name}**`);
+    } catch (error) {
+      console.error(error);
+      message.reply("❌ No pude unirme al canal.");
+    }
+  }
 });
 
 client.login(process.env.TOKEN);
